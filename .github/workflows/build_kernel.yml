@@ -78,12 +78,12 @@ jobs:
         export KBUILD_BUILD_HOST="rsuntkOrgs"
         export BUILD_START=`date`
         export IS_CI=true
+        rm -rf drivers/misc/mediatek/connectivity && cd drivers/misc/mediatek/ && git clone https://github.com/rsuntkOrgs/mtk_connectivity_module --depth=1 -b staging-4.19 connectivity && rm -rf connectivity/.git && cd ../../..
 
         if [[ "${{ github.event.inputs.TARGET_DEVICE }}" = "a03s" ]]; then
           export DEFCONFIG="rsuntk-a03s_defconfig"
           export DEVICE="A037F"
           export DEVICE_ID="A03s"
-          rm -rf drivers/misc/mediatek/connectivity && cd drivers/misc/mediatek/ && git clone https://github.com/rsuntkOrgs/mtk_connectivity_module --depth=1 -b staging-4.19-a03s_lkm connectivity && rm -rf connectivity/.git && cd ../../..
         elif [[ "${{ github.event.inputs.TARGET_DEVICE }}" = "a04e" ]]; then
           export DEFCONFIG="rsuntk-a04e_defconfig"
           export DEVICE="A042F"
