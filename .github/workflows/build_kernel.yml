@@ -14,6 +14,15 @@ on:
         options:
           - a03s
           - a04e
+      LTO:
+        description: 'Link Time Optimisation'
+        required: true
+        default: 'none'
+        type: choice
+        options:
+          - none
+          - thin
+          - full
       CLANG_EIGHTEEN:
         description: Use clang 18
         type: boolean
@@ -72,12 +81,14 @@ jobs:
         export PATH=$(pwd)/toolchains/clang-`echo $CLANG_VERSION`/bin:$PATH
         export CROSS_COMPILE=$(pwd)/toolchains/gcc-10/bin/aarch64-buildroot-linux-gnu-
         export CLANG_TRIPLE=aarch64-linux-gnu-
-        export KERNELSU="${{ github.event.inputs.KSU }}"
 
         export KBUILD_BUILD_USER="rsuntk"
         export KBUILD_BUILD_HOST="rsuntkOrgs"
-        export BUILD_START=`date`
+        export BUILD_START=`date +'%d %B %Y @ %m:%M'`
+        export SELINUX_STATE="Enforcing"
         export IS_CI=true
+
+        # clone mtk connectivity
         rm -rf drivers/misc/mediatek/connectivity && cd drivers/misc/mediatek/ && git clone https://github.com/rsuntkOrgs/mtk_connectivity_module --depth=1 -b staging-4.19 connectivity && rm -rf connectivity/.git && cd ../../..
 
         if [[ "${{ github.event.inputs.TARGET_DEVICE }}" = "a03s" ]]; then
@@ -90,38 +101,27 @@ jobs:
           export DEVICE_ID="A04e"
           export TARGET_PRODUCT=a04
         fi
-
-        # do some checks
-        echo ""
-        echo ====================================================
-        echo CROSS_COMPILE=$CROSS_COMPILE
-        echo DEFCONFIG="${{ github.event.inputs.DEFCONFIG }}"
-        echo CLANG="`clang -v 2>&1 | grep ' version ' | sed 's/[[:space:]]*$//'`"
-        echo CLANG_TRIPLE=$CLANG_TRIPLE
-        echo KBUILD_BUILD_USER=$KBUILD_BUILD_USER
-        echo KBUILD_BUILD_HOST=$KBUILD_BUILD_HOST
-        echo CURRENT_DIR=$(pwd)
-        echo DATE=`date`
-        echo KERNELSU="${{ github.event.inputs.KSU }}"
-        echo DEVICE="`echo $DEVICE`"
-        echo ====================================================
-        echo ""
         
-        bash $(pwd)/build_kernel.sh
-        if [[ ${{ github.event.inputs.KSU }} = "true" ]]; then
+        export KERNELSU="${{ github.event.inputs.SETUP_KSU }}"
+        
+        bash $(pwd)/build.sh kernel --jobs $(nproc --all) `echo $DEFCONFIG`
+        
+        if [[ "${{ github.event.inputs.SETUP_KSU }}" = "true" ]]; then
         	KSU_REV_COUNT=$(cd KernelSU && git rev-list --count HEAD)
         	KSU_VERSION=$(expr 10200 + $KSU_REV_COUNT)
         else
-        	KSU_VERSION=0
+        	KSU_VERSION="No KernelSU"
         fi
         echo "- KernelSU version: $KSU_VERSION"
         
         ## CREATE buildDetails.txt
         printf "Localversion: `./getutsrel`
         Clang version: `clang -v 2>&1 | grep ' version ' | sed 's/[[:space:]]*$//'`
+        Build: `echo $BUILD_START`
         Defconfig: `echo $DEFCONFIG`
         KernelSU: `echo $KSU_VERSION`
-        Build start: `echo $BUILD_START`
+        LTO: `echo $LTO`
+        SELinux: `echo $SELINUX_STATE`
         " >> buildDetails.txt
         
         echo "TITLE=Galaxy `echo $DEVICE_ID` Kernel" >> $GITHUB_ENV
