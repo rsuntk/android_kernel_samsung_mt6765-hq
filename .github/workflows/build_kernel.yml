@@ -32,6 +32,12 @@ on:
       UPLOAD_TO_TG:
         description: Upload to Telegram
         type: boolean
+      LLVM:
+        description: LLVM=1
+        type: boolean
+      LLVM_IAS:
+        description: LLVM_IAS=1 (LLVM=1 needed!)
+        type: boolean
         
 jobs:
   build:
@@ -88,6 +94,13 @@ jobs:
         export SELINUX_STATE="Enforcing"
         export IS_CI=true
 
+        if [[ "${{ github.event.inputs.LLVM }}" = "true" ]]; then
+          export LLVM=1
+          if [[ "${{ github.event.inputs.LLVM_IAS }}" = "true" ]]; then
+            export LLVM_IAS=1
+          fi
+        fi
+
         # clone mtk connectivity
         rm -rf drivers/misc/mediatek/connectivity && cd drivers/misc/mediatek/ && git clone https://github.com/rsuntkOrgs/mtk_connectivity_module --depth=1 -b staging-4.19 connectivity && rm -rf connectivity/.git && cd ../../..
 
@@ -102,11 +115,11 @@ jobs:
           export TARGET_PRODUCT=a04
         fi
         
-        export KERNELSU="${{ github.event.inputs.SETUP_KSU }}"
+        export KERNELSU="${{ github.event.inputs.KSU }}"
         
         bash $(pwd)/build.sh kernel --jobs $(nproc --all) `echo $DEFCONFIG`
         
-        if [[ "${{ github.event.inputs.SETUP_KSU }}" = "true" ]]; then
+        if [[ "${{ github.event.inputs.KSU }}" = "true" ]]; then
         	KSU_REV_COUNT=$(cd KernelSU && git rev-list --count HEAD)
         	KSU_VERSION=$(expr 10200 + $KSU_REV_COUNT)
         else
