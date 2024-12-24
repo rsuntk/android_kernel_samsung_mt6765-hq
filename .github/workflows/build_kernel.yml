@@ -93,6 +93,7 @@ jobs:
         export BUILD_START=`date +'%d %B %Y @ %m:%M'`
         export SELINUX_STATE="Enforcing"
         export IS_CI=true
+        export LTO="${{ github.event.inputs.LTO }}"
 
         if [[ "${{ github.event.inputs.LLVM }}" = "true" ]]; then
           export LLVM=1
