@@ -79,7 +79,7 @@ jobs:
       id: buildKernel
       run: |
         if [[ "${{ github.event.inputs.CLANG_EIGHTEEN }}" != "true" ]]; then
-          CLANG_VERSION=14
+          CLANG_VERSION=11
         else
           CLANG_VERSION=18
         fi
@@ -185,7 +185,7 @@ jobs:
     - name: Strip LKMs
       run: |
         if [[ "${{ github.event.inputs.CLANG_EIGHTEEN }}" != "true" ]]; then
-          CLANG_VERSION=14
+          CLANG_VERSION=11
         else
           CLANG_VERSION=18
         fi
