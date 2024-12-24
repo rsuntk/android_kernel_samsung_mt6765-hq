@@ -62,11 +62,14 @@ jobs:
         mkdir toolchains
         cd toolchains
         if [[ ${{ github.event.inputs.CLANG_EIGHTEEN }} != "true" ]]; then
-          git clone --depth=1 https://gitlab.com/Rissu-Projekt/toolchains/clang-toolchains.git clang-11
+          mkdir clang-14 && cd clang-14
+          wget -q -O clang.tar.gz https://android.googlesource.com/platform//prebuilts/clang/host/linux-x86/+archive/722c840a8e4d58b5ebdab62ce78eacdafd301208/clang-r450784e.tar.gz
+          tar -xf clang.tar.gz && rm clang.tar.gz && cd ..
+          #git clone --depth=1 https://gitlab.com/Rissu-Projekt/toolchains/clang-toolchains.git clang-11
         else
           mkdir clang-18 && cd clang-18
-          wget -q -O clang18.tar.gz https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/main/clang-r522817.tar.gz
-          tar -xf clang18.tar.gz && rm clang18.tar.gz && cd ..
+          wget -q -O clang.tar.gz https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/main/clang-r522817.tar.gz
+          tar -xf clang.tar.gz && rm clang.tar.gz && cd ..
         fi
         git clone --depth=1 https://github.com/VH-Devices/toolchains.git -b gcc-10.3.0 gcc-10
       working-directory: kernel_root
@@ -79,7 +82,7 @@ jobs:
       id: buildKernel
       run: |
         if [[ "${{ github.event.inputs.CLANG_EIGHTEEN }}" != "true" ]]; then
-          CLANG_VERSION=11
+          CLANG_VERSION=14
         else
           CLANG_VERSION=18
         fi
@@ -185,7 +188,7 @@ jobs:
     - name: Strip LKMs
       run: |
         if [[ "${{ github.event.inputs.CLANG_EIGHTEEN }}" != "true" ]]; then
-          CLANG_VERSION=11
+          CLANG_VERSION=14
         else
           CLANG_VERSION=18
         fi
