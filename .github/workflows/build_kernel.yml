@@ -165,6 +165,7 @@ jobs:
           kernel_root/out/arch/arm64/boot/dts/mediatek/*.dtb
 
     - name: Upload AnyKernel3
+      if: github.event.inputs.UPLOAD_TO_TG == 'true'
       uses: actions/upload-artifact@v4
       with:
         name: AnyKernel3-${{ steps.buildKernel.outputs.buildDetails }}
