@@ -1,4 +1,4 @@
-# Commonized Galaxy A04e and A03s Kernel source
+# Commonized/Unified Galaxy A03s, A04e, M04 and A06 Kernel source
 
 ### Known issue
 - A03s/A037F: Firmware download failed, causing wifi, bluetooth or maybe gps and fmradio doesn't work. (This is related to mtk connectivity driver, a patch may fix it)
