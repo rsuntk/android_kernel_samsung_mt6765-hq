@@ -1,11 +1,11 @@
 # Commonized/Unified Galaxy A03s, A04e, M04 and A06 Kernel source
 
 ### Known issue
-- A03s/A037F: Firmware download failed, causing wifi, bluetooth or maybe gps and fmradio doesn't work. (This is related to mtk connectivity driver, a patch may fix it)
+- ~A03s/A037F: Firmware download failed, causing wifi, bluetooth or maybe gps and fmradio doesn't work. (This is related to mtk connectivity driver, a patch may fix it)~ Fixed in [mtk_connectivity_module@f57390c](https://github.com/rsuntkOrgs/mtk_connectivity_module/commit/f57390ca7332a2a6cead7ab5731f90aeef4a3db5)
 
 ### How to clone this repository
 ```sh
-git clone https://github.com/rsuntk/android_kernel_samsung_mt6765-hq.git -b android-4.19-stable
+git clone https://github.com/rsuntk/android_kernel_samsung_huaqin-cmn.git
 ```
 
 ### Credits
