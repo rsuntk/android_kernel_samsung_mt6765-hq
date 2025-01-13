@@ -22,6 +22,7 @@
  *  distribution for more details.
  */
 
+#include "cgroup-internal.h"
 #include <linux/cpu.h>
 #include <linux/cpumask.h>
 #include <linux/cpuset.h>
@@ -832,19 +833,6 @@ done:
 	return ndoms;
 }
 
-static void cpuset_sched_change_begin(void)
-{
-	cpus_read_lock();
-	mutex_lock(&cpuset_mutex);
-}
-
-static void cpuset_sched_change_end(void)
-{
-	mutex_unlock(&cpuset_mutex);
-	cpus_read_unlock();
-}
-
-
 /*
  * Rebuild scheduler domains.
  *
@@ -854,8 +842,9 @@ static void cpuset_sched_change_end(void)
  * 'cpus' is removed, then call this routine to rebuild the
  * scheduler's dynamic sched domains.
  *
+ * Call with cpuset_mutex held.  Takes get_online_cpus().
  */
-static void rebuild_sched_domains_cpuslocked(void)
+static void rebuild_sched_domains_locked(void)
 {
 	struct sched_domain_attr *attr;
 	cpumask_var_t *doms;
@@ -879,7 +868,7 @@ static void rebuild_sched_domains_cpuslocked(void)
 	partition_sched_domains(ndoms, doms, attr);
 }
 #else /* !CONFIG_SMP */
-static void rebuild_sched_domains_cpuslocked(void)
+static void rebuild_sched_domains_locked(void)
 {
 }
 #endif /* CONFIG_SMP */
@@ -976,7 +965,7 @@ static void update_cpumasks_hier(struct cpuset *cs, struct cpumask *new_cpus)
 	rcu_read_unlock();
 
 	if (need_rebuild_sched_domains)
-		rebuild_sched_domains_cpuslocked();
+		rebuild_sched_domains_locked();
 }
 
 /**
@@ -1302,7 +1291,7 @@ bool current_cpuset_is_being_rebound(void)
 static int update_relax_domain_level(struct cpuset *cs, s64 val)
 {
 #ifdef CONFIG_SMP
-	if (val < -1 || val >= sched_domain_level_max)
+	if (val < -1 || val > sched_domain_level_max + 1)
 		return -EINVAL;
 #endif
 
@@ -1310,7 +1299,7 @@ static int update_relax_domain_level(struct cpuset *cs, s64 val)
 		cs->relax_domain_level = val;
 		if (!cpumask_empty(cs->cpus_allowed) &&
 		    is_sched_load_balance(cs))
-			rebuild_sched_domains_cpuslocked();
+			rebuild_sched_domains_locked();
 	}
 
 	return 0;
@@ -1343,6 +1332,7 @@ static void update_tasks_flags(struct cpuset *cs)
  *
  * Call with cpuset_mutex held.
  */
+
 static int update_flag(cpuset_flagbits_t bit, struct cpuset *cs,
 		       int turning_on)
 {
@@ -1375,7 +1365,7 @@ static int update_flag(cpuset_flagbits_t bit, struct cpuset *cs,
 	spin_unlock_irq(&callback_lock);
 
 	if (!cpumask_empty(trialcs->cpus_allowed) && balance_flag_changed)
-		rebuild_sched_domains_cpuslocked();
+		rebuild_sched_domains_locked();
 
 	if (spread_flag_changed)
 		update_tasks_flags(cs);
@@ -2105,7 +2095,7 @@ out_unlock:
 /*
  * If the cpuset being removed has its flag 'sched_load_balance'
  * enabled, then simulate turning sched_load_balance off, which
- * will call rebuild_sched_domains_cpuslocked().
+ * will call rebuild_sched_domains_locked().
  */
 
 static void cpuset_css_offline(struct cgroup_subsys_state *css)
@@ -2820,10 +2810,14 @@ int proc_cpuset_show(struct seq_file *m, struct pid_namespace *ns,
 	if (!buf)
 		goto out;
 
-	css = task_get_css(tsk, cpuset_cgrp_id);
-	retval = cgroup_path_ns(css->cgroup, buf, PATH_MAX,
-				current->nsproxy->cgroup_ns);
-	css_put(css);
+	rcu_read_lock();
+	spin_lock_irq(&css_set_lock);
+	css = task_css(tsk, cpuset_cgrp_id);
+	retval = cgroup_path_ns_locked(css->cgroup, buf, PATH_MAX,
+				       current->nsproxy->cgroup_ns);
+	spin_unlock_irq(&css_set_lock);
+	rcu_read_unlock();
+
 	if (retval >= PATH_MAX)
 		retval = -ENAMETOOLONG;
 	if (retval < 0)
