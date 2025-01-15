@@ -1425,6 +1425,17 @@ struct select_data {
 	int found;
 };
 
+// Rissu: Fmt huaqin workaround
+// HS03s for P210821-00616 by ningkaixuan at 20220314 start
+/* M04 code for DEVAL6398A-9 by gaochao at 2022/07/04 start */
+#if defined(CONFIG_HQ_PROJECT_O22) ||	\
+	defined(CONFIG_HQ_PROJECT_HS03S) ||	\
+	defined(CONFIG_HQ_PROJECT_HS04)
+#define HQ_PROJECT_WORKAROUND
+#endif
+/* M04 code for DEVAL6398A-9 by gaochao at 2022/07/04 end */
+// HS03s for P210821-00616 by ningkaixuan at 20220314 end
+
 static enum d_walk_ret select_collect(void *_data, struct dentry *dentry)
 {
 	struct select_data *data = _data;
@@ -1434,19 +1445,11 @@ static enum d_walk_ret select_collect(void *_data, struct dentry *dentry)
 		goto out;
 
 	if (dentry->d_flags & DCACHE_SHRINK_LIST) {
-          // HS03s for P210821-00616 by ningkaixuan at 20220314 start
-                /* M04 code for DEVAL6398A-9 by gaochao at 2022/07/04 start */
-                #if defined(CONFIG_HQ_PROJECT_O22) ||	\
-			defined(CONFIG_HQ_PROJECT_HS03S ||	\
-			defined(CONFIG_HQ_PROJECT_HS04)
+#ifdef HQ_PROJECT_WORKAROUND
                     goto out;
-                #elif defined(CONFIG_HQ_PROJECT_OT8)
+#else // !HQ_PROJECT_WORKAROUND || CONFIG_HQ_PROJECT_OT8
                     data->found++;
-                #else // ack
-                    data->found++;
-		#endif
-                /* M04 code for DEVAL6398A-9 by gaochao at 2022/07/04 end */
-          // HS03s for P210821-00616 by ningkaixuan at 20220314 end
+#endif
 	} else {
 		if (dentry->d_flags & DCACHE_LRU_LIST)
 			d_lru_del(dentry);
