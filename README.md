@@ -16,3 +16,4 @@ git clone https://github.com/rsuntk/android_kernel_samsung_huaqin-cmn.git
 ### Credits
 - [@rsuntk](https://github.com/rsuntk) - The Kernel source
 - [@hiratazx](https://github.com/hiratazx) - For helping
+- And all yukiprjkt members
