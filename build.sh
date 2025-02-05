@@ -19,6 +19,12 @@ if [ -d /rsuntk ]; then
 	export CROSS_COMPILE=/rsuntk/toolchains/gcc-10/bin/aarch64-buildroot-linux-gnu-
 	export PATH=/rsuntk/toolchains/clang-20/bin:$PATH
 fi
+if [ -d $(pwd)/prebuilt ] && [ ! -z $PREBUILT_TOOLCHAINS ]; then
+	export CROSS_COMPILE=$(pwd)/prebuilt/toolchains/gcc-10/bin/aarch64-buildroot-linux-gnu-
+	export PATH=$(pwd)/prebuilt/toolchains/llvm-11/bin:$PATH
+else
+	echo "[i] You can use prebuilt toolchains by 'export PREBUILT_TOOLCHAINS=y'"
+fi
 
 # start of default args
 DEFAULT_ARGS="
