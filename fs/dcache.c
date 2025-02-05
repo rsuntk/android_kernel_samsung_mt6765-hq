@@ -714,12 +714,12 @@ static inline bool fast_dput(struct dentry *dentry)
 	 */
 	if (unlikely(ret < 0)) {
 		spin_lock(&dentry->d_lock);
-		if (dentry->d_lockref.count > 1) {
-			dentry->d_lockref.count--;
+		if (WARN_ON_ONCE(dentry->d_lockref.count <= 0)) {
 			spin_unlock(&dentry->d_lock);
 			return true;
 		}
-		return false;
+		dentry->d_lockref.count--;
+		goto locked;
 	}
 
 	/*
@@ -770,6 +770,7 @@ static inline bool fast_dput(struct dentry *dentry)
 	 * else could have killed it and marked it dead. Either way, we
 	 * don't need to do anything else.
 	 */
+locked:
 	if (dentry->d_lockref.count) {
 		spin_unlock(&dentry->d_lock);
 		return true;
@@ -1425,6 +1426,17 @@ struct select_data {
 	int found;
 };
 
+/* Rissu: fmt */
+// HS03s for P210821-00616 by ningkaixuan at 20220314 start
+/* M04 code for DEVAL6398A-9 by gaochao at 2022/07/04 start */
+#if defined(CONFIG_HQ_PROJECT_O22) ||	\
+	defined(CONFIG_HQ_PROJECT_HS03S) ||	\
+	defined(CONFIG_HQ_PROJECT_HS04)
+#define HQ_DCACHE_WORKAROUND
+#endif
+/* M04 code for DEVAL6398A-9 by gaochao at 2022/07/04 end */
+// HS03s for P210821-00616 by ningkaixuan at 20220314 end
+
 static enum d_walk_ret select_collect(void *_data, struct dentry *dentry)
 {
 	struct select_data *data = _data;
@@ -1434,23 +1446,11 @@ static enum d_walk_ret select_collect(void *_data, struct dentry *dentry)
 		goto out;
 
 	if (dentry->d_flags & DCACHE_SHRINK_LIST) {
-          // HS03s for P210821-00616 by ningkaixuan at 20220314 start
-                /* M04 code for DEVAL6398A-9 by gaochao at 2022/07/04 start */
-                // #ifdef CONFIG_HQ_PROJECT_HS03S
-                #if defined(CONFIG_HQ_PROJECT_O22)
+#ifdef HQ_DCACHE_WORKAROUND
                     goto out;
-                #endif
-                #if defined(CONFIG_HQ_PROJECT_HS03S)
-                    goto out;
-                #endif
-                #if defined(CONFIG_HQ_PROJECT_HS04)
-                    goto out;
-                #endif
-                #if defined(CONFIG_HQ_PROJECT_OT8)
+#else
                     data->found++;
-                #endif
-                /* M04 code for DEVAL6398A-9 by gaochao at 2022/07/04 end */
-          // HS03s for P210821-00616 by ningkaixuan at 20220314 end
+#endif
 	} else {
 		if (dentry->d_flags & DCACHE_LRU_LIST)
 			d_lru_del(dentry);
@@ -2985,28 +2985,25 @@ EXPORT_SYMBOL(d_splice_alias);
   
 bool is_subdir(struct dentry *new_dentry, struct dentry *old_dentry)
 {
-	bool result;
+	bool subdir;
 	unsigned seq;
 
 	if (new_dentry == old_dentry)
 		return true;
 
-	do {
-		/* for restarting inner loop in case of seq retry */
-		seq = read_seqbegin(&rename_lock);
-		/*
-		 * Need rcu_readlock to protect against the d_parent trashing
-		 * due to d_move
-		 */
-		rcu_read_lock();
-		if (d_ancestor(old_dentry, new_dentry))
-			result = true;
-		else
-			result = false;
-		rcu_read_unlock();
-	} while (read_seqretry(&rename_lock, seq));
-
-	return result;
+	/* Access d_parent under rcu as d_move() may change it. */
+	rcu_read_lock();
+	seq = read_seqbegin(&rename_lock);
+	subdir = d_ancestor(old_dentry, new_dentry);
+	 /* Try lockless once... */
+	if (read_seqretry(&rename_lock, seq)) {
+		/* ...else acquire lock for progress even on deep chains. */
+		read_seqlock_excl(&rename_lock);
+		subdir = d_ancestor(old_dentry, new_dentry);
+		read_sequnlock_excl(&rename_lock);
+	}
+	rcu_read_unlock();
+	return subdir;
 }
 EXPORT_SYMBOL(is_subdir);
 

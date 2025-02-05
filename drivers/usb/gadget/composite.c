@@ -597,7 +597,7 @@ static u8 encode_bMaxPower(enum usb_device_speed speed,
 {
 	unsigned val;
 
-	if (c->MaxPower)
+	if (c->MaxPower || (c->bmAttributes & USB_CONFIG_ATT_SELFPOWER))
 		val = c->MaxPower;
 	else
 		val = CONFIG_USB_GADGET_VBUS_DRAW;
@@ -1017,7 +1017,11 @@ static int set_config(struct usb_composite_dev *cdev,
 	}
 
 	/* when we return, be sure our power usage is valid */
-	power = c->MaxPower ? c->MaxPower : CONFIG_USB_GADGET_VBUS_DRAW;
+	if (c->MaxPower || (c->bmAttributes & USB_CONFIG_ATT_SELFPOWER))
+		power = c->MaxPower;
+	else
+		power = CONFIG_USB_GADGET_VBUS_DRAW;
+
 	if (gadget->speed < USB_SPEED_SUPER)
 		power = min(power, 500U);
 	else
@@ -1764,7 +1768,6 @@ composite_setup(struct usb_gadget *gadget, const struct usb_ctrlrequest *ctrl)
 	u16				w_length = le16_to_cpu(ctrl->wLength);
 	struct usb_function		*f = NULL;
 	u8				endp;
-	static DEFINE_RATELIMIT_STATE(ratelimit, 1 * HZ, 5);
 
 	if (w_length > USB_COMP_EP0_BUFSIZ) {
 		if (ctrl->bRequestType & USB_DIR_IN) {
@@ -2002,15 +2005,7 @@ composite_setup(struct usb_gadget *gadget, const struct usb_ctrlrequest *ctrl)
 	 * only for the first interface of the function
 	 */
 	case USB_REQ_CLEAR_FEATURE:
-		if (__ratelimit(&ratelimit))
-			INFO(cdev, "[rlimit]%s w_value=%d\n",
-					"USB_REQ_CLEAR_FEATURE",
-					w_value);
 	case USB_REQ_SET_FEATURE:
-		if (__ratelimit(&ratelimit))
-			INFO(cdev, "[rlimit]%s w_value=%d\n",
-					"USB_REQ_SET_FEATURE",
-					w_value);
 		if (!gadget_is_superspeed(gadget))
 			goto unknown;
 		if (ctrl->bRequestType != (USB_DIR_OUT | USB_RECIP_INTERFACE))
@@ -2036,12 +2031,6 @@ composite_setup(struct usb_gadget *gadget, const struct usb_ctrlrequest *ctrl)
 		break;
 	default:
 unknown:
-		if (__ratelimit(&ratelimit))
-			INFO(cdev,
-					"[rlimit]non-core req%02x.%02x v%04x i%04x l%d\n",
-					ctrl->bRequestType, ctrl->bRequest,
-					w_value, w_index, w_length);
-
 		/*
 		 * OS descriptors handling
 		 */
@@ -2062,6 +2051,18 @@ unknown:
 			memset(buf, 0, w_length);
 			buf[5] = 0x01;
 			switch (ctrl->bRequestType & USB_RECIP_MASK) {
+			/*
+			 * The Microsoft CompatID OS Descriptor Spec(w_index = 0x4) and
+			 * Extended Prop OS Desc Spec(w_index = 0x5) state that the
+			 * HighByte of wValue is the InterfaceNumber and the LowByte is
+			 * the PageNumber. This high/low byte ordering is incorrectly
+			 * documented in the Spec. USB analyzer output on the below
+			 * request packets show the high/low byte inverted i.e LowByte
+			 * is the InterfaceNumber and the HighByte is the PageNumber.
+			 * Since we dont support >64KB CompatID/ExtendedProp descriptors,
+			 * PageNumber is set to 0. Hence verify that the HighByte is 0
+			 * for below two cases.
+			 */
 			case USB_RECIP_DEVICE:
 				if (w_index != 0x4 || (w_value >> 8))
 					break;
@@ -2083,8 +2084,8 @@ unknown:
 					break;
 				interface = w_value & 0xFF;
 				if (interface >= MAX_CONFIG_INTERFACES ||
-					!os_desc_cfg->interface[interface])
-						break;
+				    !os_desc_cfg->interface[interface])
+					break;
 				buf[6] = w_index;
 				count = count_ext_prop(os_desc_cfg,
 					interface);
@@ -2195,17 +2196,6 @@ check_value:
 	}
 
 done:
-	if (value < 0) {
-		if (__ratelimit(&ratelimit)) {
-			INFO(cdev, "[rlimit]val:%d,bReqType:%x,bReq:%x\n",
-					value,
-					ctrl->bRequestType,
-					ctrl->bRequest);
-			INFO(cdev, "[rlimit]w_value=0x%x, w_length=0x%x\n",
-					w_value, w_length);
-		}
-	}
-
 	/* device either stalls (value < 0) or reports success */
 	return value;
 }

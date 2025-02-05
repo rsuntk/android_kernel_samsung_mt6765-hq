@@ -8,6 +8,7 @@
 #include <mt-plat/turbo_common.h>
 #endif
 #include "../../drivers/misc/mediatek/base/power/include/mtk_upower.h"
+
 /* hs14 code for AL6528A-992 by gaozhengwei at 2022/11/25 start */
 #if defined(CONFIG_HQ_PROJECT_O22) && (!defined(HQ_FACTORY_BUILD))
 #include <mt-plat/mtk_boot_common.h>
@@ -522,7 +523,7 @@ static struct sched_entity
 			if (check_min_cap && util_min >= src_capacity)
 				return se;
 
-			if (schedtune_prefer_idle(task_of(se)) &&
+			if (uclamp_latency_sensitive(task_of(se)) &&
 					cpu_rq(cpu)->nr_running > 1) {
 				if (!check_min_cap)
 					return se;
